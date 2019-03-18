@@ -1,1 +1,1 @@
-Sadi, Plz complite this file in Bangla langauge.
+Sadi, Plz complete this file in Bangla langauge.
