@@ -7,4 +7,4 @@ while True:
     result, error = ko.run('Working File', text)
 
     if error: print(error.asString())
-    else: print(result)
+    elif result: print(result)

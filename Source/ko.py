@@ -144,7 +144,11 @@ KEYWORDS = [
     'ধরি',
     'এবং',
     'অথবা',
-    'নয়'
+    'নয়',
+    'যদি',
+    'তাহলে',
+    'অথবা যদি',
+    'নাহলে'
 ]
 
 
@@ -365,6 +369,13 @@ class UnaryOpNode:
     def __repr__(self):
         return f'({self.opTok}, {self.node})'
 
+class IfNode:
+    def __init__(self, cases, elseCase):
+        self.cases = cases
+        self.elseCase = elseCase
+
+        self.posStart = self.cases[0][0].posStart
+        self.posEnd = (self.elseCase or self.cases[len(self.cases) - 1][0]).posEnd
 
 ######################
 ### PARSER RESULT  ###
@@ -422,6 +433,65 @@ class Parser:
 
     ###################################
 
+    def ifExpr(self):
+        res = ParseResult()
+        cases = []
+        elseCase = None
+
+        if not self.currentTok.matches(KO_KEYWORD, 'যদি'):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত 'যদি' হবে। "
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        condition = res.register(self.expr())
+        if res.error: return res
+
+        if not self.currentTok.matches(KO_KEYWORD, 'তাহলে'):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত 'তাহলে' হবে।'"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        expr = res.register(self.expr())
+        if res.error: return res
+        cases.append((condition, expr))
+
+        while self.currentTok.matches(KO_KEYWORD, 'অথবা যদি'):
+            res.registerAdvancement()
+            self.advance()
+
+            condition = res.register(self.expr())
+            if res.error: return res
+
+            if not self.currentTok.matches(KO_KEYWORD, 'তাহলে'):
+                return res.failure(InvalidSyntaxError(
+                    self.currentTok.posStart, self.currentTok.posEnd,
+                    f"সম্ভবত 'তাহলে' হবে।"
+                ))
+
+            res.registerAdvancement()
+            self.advance()
+
+            expr = res.register(self.expr())
+            if res.error: return res
+            cases.append((condition, expr))
+
+        if self.currentTok.matches(KO_KEYWORD, 'নাহলে'):
+            res.registerAdvancement()
+            self.advance()
+
+            elseCase = res.register(self.expr())
+            if res.error: return res
+
+        return res.success(IfNode(cases, elseCase))
+
     def atom(self):
         res = ParseResult()
         tok = self.currentTok
@@ -450,6 +520,12 @@ class Parser:
                     self.currentTok.posStart, self.currentTok.posEnd,
                     "সম্ভবত ')' হবে!"
                 ))
+
+        elif tok.matches(KO_KEYWORD, 'যদি'):
+            ifExpr = res.register(self.ifExpr())
+            if res.error: return res
+            return res.success(ifExpr)
+
         return res.failure(InvalidSyntaxError(
             tok.posStart, tok.posEnd,
             "সম্ভবত সংখ্যা, দশমিক সংখ্যা, শনাক্তকারী, +, - অথবা (  হবে !"
@@ -668,6 +744,9 @@ class Number:
         copy.setContext(self.context)
         return copy
 
+    def isTrue(self):
+        return self.value != 0
+
     def __repr__(self):
         return str(self.value)
 
@@ -807,6 +886,25 @@ class Interpreter:
             return res.failure(error)
         else:
             return res.success(number.setPos(node.posStart, node.posEnd))
+
+    def visitIfNode(self, node, context):
+        res = RTResult()
+
+        for condition, expr in node.cases:
+            conditionValue = res.register(self.visit(condition, context))
+            if res.error: return res
+
+            if conditionValue.isTrue():
+                exprValue = res.register(self.visit(expr, context))
+                if res.error: return res
+                return res.success(exprValue)
+
+        if node.elseCase:
+            elseValue = res.register(self.visit(node.elseCase, context))
+            if res.error: return res
+            return res.success(elseValue)
+
+        return res.success(None)
 
 
 ######################
