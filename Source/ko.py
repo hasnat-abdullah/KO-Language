@@ -55,6 +55,10 @@ class IllegalCharError(Error):
     def __init__(self, posStart, posEnd, details):
         super().__init__(posStart, posEnd, 'দুঃখিত, ভুল অক্ষর', details)
 
+class ExpectedCharError(Error):
+    def __init__(self, posStart, posEnd, details):
+        super().__init__(posStart, posEnd, 'দুঃখিত, কাঙ্ক্ষিত অক্ষর', details)
+
 
 class InvalidSyntaxError(Error):
     def __init__(self, posStart, posEnd, details=''):
@@ -127,10 +131,20 @@ KO_EQ = 'সমান'
 KO_MOD = 'ভাগশেষ'
 KO_LPAREN = 'বাম ব্রাকেট'
 KO_RPAREN = 'ডান ব্রাকেট'
+KO_EE = 'সমান সমান'
+KO_NE = 'সমান নয়'
+KO_LT = 'ছোট'
+KO_GT = 'বড়'
+KO_LTE = 'ছোট অথবা সমান'
+KO_GTE = 'বড় অথবা সমান'
 KO_EOF = 'ফাইল শেষ'
 
+
 KEYWORDS = [
-    'ধরি'
+    'ধরি',
+    'এবং',
+    'অথবা',
+    'নয়'
 ]
 
 
@@ -198,15 +212,22 @@ class Lexer:
             elif self.currentChar == '^':
                 tokens.append(Token(KO_POW, posStart=self.pos))
                 self.advance()
-            elif self.currentChar == '=':
-                tokens.append(Token(KO_EQ, posStart=self.pos))
-                self.advance()
             elif self.currentChar == '(':
                 tokens.append(Token(KO_LPAREN, posStart=self.pos))
                 self.advance()
             elif self.currentChar == ')':
                 tokens.append(Token(KO_RPAREN, posStart=self.pos))
                 self.advance()
+            elif self.currentChar == '!':
+                token, error = self.makeNotEquals()
+                if error: return [], error
+                tokens.append(token)
+            elif self.currentChar == '=':
+                tokens.append(self.makeEquals())
+            elif self.currentChar == '<':
+                tokens.append(self.makeLessThan())
+            elif self.currentChar == '>':
+                tokens.append(self.makeGreaterThan())
             else:
                 posStart = self.pos.copy()
                 char = self.currentChar
@@ -243,6 +264,50 @@ class Lexer:
 
         tokType = KO_KEYWORD if idStr in KEYWORDS else KO_IDENTIFIER
         return Token(tokType, idStr, posStart, self.pos)
+
+    def makeNotEquals(self):
+        posStart = self.pos.copy()
+        self.advance()
+
+        if self.currentChar == '=':
+            self.advance()
+            return Token(KO_NE, posStart=posStart, posEnd=self.pos), None
+
+        self.advance()
+        return None, ExpectedCharError(posStart, self.pos, "'=' (পরে '!')")
+
+    def makeEquals(self):
+        tokType = KO_EQ
+        posStart = self.pos.copy()
+        self.advance()
+
+        if self.currentChar == '=':
+            self.advance()
+            tokType = KO_EE
+
+        return Token(tokType, posStart=posStart, posEnd=self.pos)
+
+    def makeLessThan(self):
+        tokType = KO_LT
+        posStart = self.pos.copy()
+        self.advance()
+
+        if self.currentChar == '=':
+            self.advance()
+            tokType = KO_LTE
+
+        return Token(tokType, posStart=posStart, posEnd=self.pos)
+
+    def makeGreaterThan(self):
+        tokType = KO_GT
+        posStart = self.pos.copy()
+        self.advance()
+
+        if self.currentChar == '=':
+            self.advance()
+            tokType = KO_GTE
+
+        return Token(tokType, posStart=posStart, posEnd=self.pos)
 
 
 ######################
@@ -351,7 +416,7 @@ class Parser:
         res = self.expr()
         if not res.error and self.currentTok.type != KO_EOF:
             return res.failure(InvalidSyntaxError(
-                self.currentTok.posStart, self.currentTok.posEnd, "সম্ভবত '+', '-', '*' বা '/' হবে "
+                self.currentTok.posStart, self.currentTok.posEnd, "সম্ভবত '+', '-', '*', '/', '^', '==', '!=', '<', '>', <=', '>=', 'এবং' বা 'অথবা' হবে। "
             ))
         return res
 
@@ -410,6 +475,31 @@ class Parser:
     def term(self):
         return self.binOp(self.factor, (KO_MUL, KO_DIV))
 
+    def arithExpr(self):
+        return self.binOp(self.term, (KO_PLUS, KO_MINUS))
+
+    def compExpr(self):
+        res = ParseResult()
+
+        if self.currentTok.matches(KO_KEYWORD, 'নয়'):
+            opTok = self.currentTok
+            res.registerAdvancement()
+            self.advance()
+
+            node = res.register(self.compExpr())
+            if res.error: return res
+            return res.success(UnaryOpNode(opTok, node))
+
+        node = res.register(self.binOp(self.arithExpr, (KO_EE, KO_NE, KO_LT, KO_GT, KO_LTE, KO_GTE)))
+
+        if res.error:
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                "সম্ভবত সংখ্যা, দশমিক সংখ্যা, শনাক্তকারী, +, -, ( অথবা 'নয়' হবে !"
+            ))
+
+        return res.success(node)
+
     def expr(self):
         res = ParseResult()
 
@@ -439,7 +529,7 @@ class Parser:
             if res.error: return res
             return res.success(VarAssignNode(varName, expr))
 
-        node = res.register(self.binOp(self.term, (KO_PLUS, KO_MINUS)))
+        node = res.register(self.binOp(self.compExpr, ((KO_KEYWORD, "এবং"),(KO_KEYWORD, "অথবা"))))
 
         if res.error:
             return res.failure(InvalidSyntaxError(
@@ -458,7 +548,7 @@ class Parser:
         left = res.register(func_a())
         if res.error: return res
 
-        while self.currentTok.type in ops:
+        while self.currentTok.type in ops or (self.currentTok.type, self.currentTok.value) in ops:
             opTok = self.currentTok
             res.registerAdvancement()
             self.advance()
@@ -536,6 +626,41 @@ class Number:
     def powedBy(self, other):
         if isinstance(other, Number):
             return Number(self.value ** other.value).setContext(self.context), None
+
+    def getComparisonEq(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value == other.value)).setContext(self.context), None
+
+    def getComparisonNe(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value != other.value)).setContext(self.context), None
+
+    def getComparisonLt(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value < other.value)).setContext(self.context), None
+
+    def getComparisonGt(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value > other.value)).setContext(self.context), None
+
+    def getComparisonLte(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value <= other.value)).setContext(self.context), None
+
+    def getComparisonGte(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value >= other.value)).setContext(self.context), None
+
+    def andedBy(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value and other.value)).setContext(self.context), None
+
+    def oredBy(self, other):
+        if isinstance(other, Number):
+            return Number(int(self.value or other.value)).setContext(self.context), None
+
+    def notted(self):
+        return Number(1 if self.value == 0 else 0).setContext(self.context), None
 
     def copy(self):
         copy = Number(self.value)
@@ -644,6 +769,22 @@ class Interpreter:
             result, error = left.divedBy(right)
         elif node.opTok.type == KO_POW:
             result, error = left.powedBy(right)
+        elif node.opTok.type == KO_EE:
+            result, error = left.getComparisonEq(right)
+        elif node.opTok.type == KO_NE:
+            result, error = left.getComparisonNe(right)
+        elif node.opTok.type == KO_LT:
+            result, error = left.getComparisonLt(right)
+        elif node.opTok.type == KO_GT:
+            result, error = left.getComparisonGt(right)
+        elif node.opTok.type == KO_LTE:
+            result, error = left.getComparisonLte(right)
+        elif node.opTok.type == KO_GTE:
+            result, error = left.getComparisonGte(right)
+        elif node.opTok.matches(KO_KEYWORD, 'এবং'):
+            result, error = left.andedBy(right)
+        elif node.opTok.matches(KO_KEYWORD, 'অথবা'):
+            result, error = left.oredBy(right)
 
         if error:
             return res.failure(error)
@@ -659,6 +800,8 @@ class Interpreter:
 
         if node.opTok.type == KO_MINUS:
             number, error = number.multedBy(Number(-1))
+        elif node.opTok.matches(KO_KEYWORD, 'নয়'):
+            number, error = number.notted()
 
         if error:
             return res.failure(error)
