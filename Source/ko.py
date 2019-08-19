@@ -148,7 +148,11 @@ KEYWORDS = [
     'যদি',
     'তাহলে',
     'অথবা যদি',
-    'নাহলে'
+    'নাহলে',
+    'লুপ',
+    'থেকে',
+    'বৃদ্ধি',
+    'যখন'
 ]
 
 
@@ -369,6 +373,7 @@ class UnaryOpNode:
     def __repr__(self):
         return f'({self.opTok}, {self.node})'
 
+
 class IfNode:
     def __init__(self, cases, elseCase):
         self.cases = cases
@@ -376,6 +381,27 @@ class IfNode:
 
         self.posStart = self.cases[0][0].posStart
         self.posEnd = (self.elseCase or self.cases[len(self.cases) - 1][0]).posEnd
+
+
+class ForNode:
+    def __init__(self, varNameTok, startValueNode, endValueNode, stepValueNode, bodyNode):
+        self.varNameTok = varNameTok
+        self.startValueNode = startValueNode
+        self.endValueNode = endValueNode
+        self.stepValueNode = stepValueNode
+        self.bodyNode = bodyNode
+
+        self.posStar = self.varNameTok.posStart
+        self.posEnd = self.bodyNode.posEnd
+
+
+class WhileNode:
+    def __init__(self, conditionNode, bodyNode):
+        self.conditionNode = conditionNode
+        self.bodyNode = bodyNode
+
+        self.posStart = self.conditionNode.posStart
+        self.posEnd = self.bodyNode.posEnd
 
 ######################
 ### PARSER RESULT  ###
@@ -492,6 +518,104 @@ class Parser:
 
         return res.success(IfNode(cases, elseCase))
 
+    def forExpr(self):
+        res = ParseResult()
+
+        if not self.currentTok.matches(KO_KEYWORD, 'লুপ'):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত 'লুপ' হবে"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        if self.currentTok.type != KO_IDENTIFIER:
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত identifier হবে"
+            ))
+
+        varName = self.currentTok
+        res.registerAdvancement()
+        self.advance()
+
+        if self.currentTok.type != KO_EQ:
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত '=' হবে"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        startValue = res.register(self.expr())
+        if res.error: return res
+
+        if not self.currentTok.matches(KO_KEYWORD, 'থেকে'):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত 'থেকে' হবে"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        endValue = res.register(self.expr())
+        if res.error: return res
+
+        if self.currentTok.matches(KO_KEYWORD, 'বৃদ্ধি'):
+            res.registerAdvancement()
+            self.advance()
+
+            stepValue = res.register(self.expr())
+            if res.error: return res
+        else:
+            stepValue = None
+
+        if not self.currentTok.matches(KO_KEYWORD, 'তাহলে'):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত 'তাহলে' হবে"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        body = res.register(self.expr())
+        if res.error: return res
+
+        return res.success(ForNode(varName, startValue, endValue, stepValue, body))
+
+    def whileExpr(self):
+        res = ParseResult()
+
+        if not self.currentTok.matches(KO_KEYWORD, 'যখন'):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত 'যখন' হবে"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        condition = res.register(self.expr())
+        if res.error: return res
+
+        if not self.currentTok.matches(KO_KEYWORD, 'তাহলে'):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"সম্ভবত 'তাহলে' হবে"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        body = res.register(self.expr())
+        if res.error: return res
+
+        return res.success(WhileNode(condition, body))
+
     def atom(self):
         res = ParseResult()
         tok = self.currentTok
@@ -525,6 +649,16 @@ class Parser:
             ifExpr = res.register(self.ifExpr())
             if res.error: return res
             return res.success(ifExpr)
+
+        elif tok.matches(KO_KEYWORD, 'লুপ'):
+            forExpr = res.register(self.forExpr())
+            if res.error: return res
+            return res.success(forExpr)
+
+        elif tok.matches(KO_KEYWORD, 'যখন'):
+            whileExpr = res.register(self.whileExpr())
+            if res.error: return res
+            return res.success(whileExpr)
 
         return res.failure(InvalidSyntaxError(
             tok.posStart, tok.posEnd,
@@ -906,6 +1040,50 @@ class Interpreter:
 
         return res.success(None)
 
+    def visitForNode(self, node, context):
+        res = RTResult()
+
+        startValue = res.register(self.visit(node.startValueNode, context))
+        if res.error: return res
+
+        endValue = res.register(self.visit(node.endValueNode, context))
+        if res.error: return res
+
+        if node.stepValueNode:
+            stepValue = res.register(self.visit(node.stepValueNode, context))
+            if res.error: return res
+        else:
+            stepValue = Number(1)
+
+        i = startValue.value
+
+        if stepValue.value >= 0:
+            condition = lambda: i < endValue.value
+        else:
+            condition = lambda: i > endValue.value
+
+        while condition():
+            context.symbolTable.set(node.varNameTok.value, Number(i))
+            i += stepValue.value
+
+            res.register(self.visit(node.bodyNode, context))
+            if res.error: return res
+
+        return res.success(None)
+
+    def visitWhileNode(self, node, context):
+        res = RTResult()
+
+        while True:
+            condition = res.register(self.visit(node.conditionNode, context))
+            if res.error: return res
+
+            if not condition.isTrue(): break
+            res.register(self.visit(node.bodyNode, context))
+            if res.error: return res
+
+        return res.success(None)
+
 
 ######################
 ###       RUN      ###
@@ -913,6 +1091,8 @@ class Interpreter:
 
 globalSymbolTable = SymbolTable()
 globalSymbolTable.set("null", Number(0))
+globalSymbolTable.set("মিথ্যা", Number(0))
+globalSymbolTable.set("সত্য", Number(1))
 
 
 def run(fn, text):
