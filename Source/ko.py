@@ -137,6 +137,8 @@ KO_LT = 'ছোট'
 KO_GT = 'বড়'
 KO_LTE = 'ছোট অথবা সমান'
 KO_GTE = 'বড় অথবা সমান'
+KO_COMMA = 'কমা'
+KO_ARROW = 'তীর'
 KO_EOF = 'ফাইল শেষ'
 
 
@@ -146,13 +148,14 @@ KEYWORDS = [
     'অথবা',
     'নয়',
     'যদি',
-    'তাহলে',
     'অথবা যদি',
     'নাহলে',
     'লুপ',
     'থেকে',
     'বৃদ্ধি',
-    'যখন'
+    'যখন',
+    'ফাংশন',
+    'তাহলে'
 ]
 
 
@@ -209,8 +212,7 @@ class Lexer:
                 tokens.append(Token(KO_PLUS, posStart=self.pos))
                 self.advance()
             elif self.currentChar == '-':
-                tokens.append(Token(KO_MINUS, posStart=self.pos))
-                self.advance()
+                tokens.append(self.makeMinusOrArrow())
             elif self.currentChar == '*':
                 tokens.append(Token(KO_MUL, posStart=self.pos))
                 self.advance()
@@ -236,6 +238,9 @@ class Lexer:
                 tokens.append(self.makeLessThan())
             elif self.currentChar == '>':
                 tokens.append(self.makeGreaterThan())
+            elif self.currentChar == ',':
+                tokens.append(Token(KO_COMMA, posStart=self.pos))
+                self.advance()
             else:
                 posStart = self.pos.copy()
                 char = self.currentChar
@@ -272,6 +277,17 @@ class Lexer:
 
         tokType = KO_KEYWORD if idStr in KEYWORDS else KO_IDENTIFIER
         return Token(tokType, idStr, posStart, self.pos)
+
+    def makeMinusOrArrow(self):
+        tokType = KO_MINUS
+        posStart = self.pos.copy()
+        self.advance()
+
+        if self.currentChar == '>':
+            self.advance()
+            tokType = KO_ARROW
+
+        return Token(tokType, posStart=posStart, posEnd=self.pos)
 
     def makeNotEquals(self):
         posStart = self.pos.copy()
@@ -402,6 +418,33 @@ class WhileNode:
 
         self.posStart = self.conditionNode.posStart
         self.posEnd = self.bodyNode.posEnd
+
+
+class FuncDefNode:
+    def __init__(self, varNameTok, argNameToks, bodyNode):
+        self.varNameTok = varNameTok
+        self.argNameToks = argNameToks
+        self.bodyNode = bodyNode
+
+        if self.varNameTok:
+            self.posStart = self.varNameTok.posStart
+        elif len(self.argNameToks) > 0:
+            self.posStart = self.argNameToks[0].posStart
+        else:
+            self.posStart = self.bodyNode.posStart
+        self.posEnd = self.bodyNode.posEnd
+
+class CallNode:
+    def __init__(self, nodeToCall, argNodes):
+        self.nodeToCall = nodeToCall
+        self.argNodes = argNodes
+
+        self.posStart = self.nodeToCall.posStart
+
+        if len(self.argNodes) > 0:
+            self.posEnd = self.argNodes[len(self.argNodes) - 1].posEnd
+        else:
+            self.posEnd = self.nodeToCall.posEnd
 
 ######################
 ### PARSER RESULT  ###
@@ -616,6 +659,45 @@ class Parser:
 
         return res.success(WhileNode(condition, body))
 
+    def call(self):
+        res = ParseResult()
+        atom = res.register(self.atom())
+        if res.error: return res
+
+        if self.currentTok.type == KO_LPAREN:
+            res.registerAdvancement()
+            self.advance()
+            argNodes = []
+
+            if self.currentTok.type == KO_RPAREN:
+                res.registerAdvancement()
+                self.advance()
+            else:
+                argNodes.append(res.register(self.expr()))
+                if res.error:
+                    return res.failure(InvalidSyntaxError(
+                        self.currentTok.posStart, self.currentTok.posEnd,
+                        "Expected ')', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or 'NOT'"
+                    ))
+
+                while self.currentTok.type == KO_COMMA:
+                    res.registerAdvancement()
+                    self.advance()
+
+                    argNodes.append(res.register(self.expr()))
+                    if res.error: return res
+
+                if self.currentTok.type != KO_RPAREN:
+                    return res.failure(InvalidSyntaxError(
+                        self.currentTok.posStart, self.currentTok.posEnd,
+                        f"Expected ',' or ')'"
+                    ))
+
+                res.registerAdvancement()
+                self.advance()
+            return res.success(CallNode(atom, argNodes))
+        return res.success(atom)
+
     def atom(self):
         res = ParseResult()
         tok = self.currentTok
@@ -660,13 +742,18 @@ class Parser:
             if res.error: return res
             return res.success(whileExpr)
 
+        elif tok.matches(KO_KEYWORD, 'ফাংশন'):
+            funcDef = res.register(self.funcDef())
+            if res.error: return res
+            return res.success(funcDef)
+
         return res.failure(InvalidSyntaxError(
             tok.posStart, tok.posEnd,
             "সম্ভবত সংখ্যা, দশমিক সংখ্যা, শনাক্তকারী, +, - অথবা (  হবে !"
         ))
 
     def power(self):
-        return self.binOp(self.atom, (KO_POW,), self.factor)
+        return self.binOp(self.call, (KO_POW,), self.factor)
 
     def factor(self):
         res = ParseResult()
@@ -749,6 +836,91 @@ class Parser:
 
         return res.success(node)
 
+    def funcDef(self):
+        res = ParseResult()
+
+        if not self.currentTok.matches(KO_KEYWORD, 'ফাংশন'):
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"Expected 'FUN'"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        if self.currentTok.type == KO_IDENTIFIER:
+            varNameTok = self.currentTok
+            res.registerAdvancement()
+            self.advance()
+            if self.currentTok.type != KO_LPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.currentTok.posStart, self.currentTok.posEnd,
+                    f"Expected '('"
+                ))
+        else:
+            varNameTok = None
+            if self.currentTok.type != KO_LPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.currentTok.posStart, self.currentTok.posEnd,
+                    f"Expected identifier or '('"
+                ))
+
+        res.registerAdvancement()
+        self.advance()
+        argNameToks = []
+
+        if self.currentTok.type == KO_IDENTIFIER:
+            argNameToks.append(self.currentTok)
+            res.registerAdvancement()
+            self.advance()
+
+            while self.currentTok.type == KO_COMMA:
+                res.registerAdvancement()
+                self.advance()
+
+                if self.currentTok.type != KO_IDENTIFIER:
+                    return res.failure(InvalidSyntaxError(
+                        self.currentTok.posStart, self.currentTok.posEnd,
+                        f"Expected identifier"
+                    ))
+
+                argNameToks.append(self.currentTok)
+                res.registerAdvancement()
+                self.advance()
+
+            if self.currentTok.type != KO_RPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.currentTok.posStart, self.currentTok.posEnd,
+                    f"Expected ',' or ')'"
+                ))
+        else:
+            if self.currentTok.type != KO_RPAREN:
+                return res.failure(InvalidSyntaxError(
+                    self.currentTok.posStart, self.currentTok.posEnd,
+                    f"Expected identifier or ')'"
+                ))
+
+        res.registerAdvancement()
+        self.advance()
+
+        if self.currentTok.type != KO_ARROW:
+            return res.failure(InvalidSyntaxError(
+                self.currentTok.posStart, self.currentTok.posEnd,
+                f"Expected '->'"
+            ))
+
+        res.registerAdvancement()
+        self.advance()
+        nodeToReturn = res.register(self.expr())
+        if res.error: return res
+
+        return res.success(FuncDefNode(
+            varNameTok,
+            argNameToks,
+            nodeToReturn
+        ))
+
+
     ###################################
 
     def binOp(self, func_a, ops, func_b=None):
@@ -793,7 +965,7 @@ class RTResult:
 
 
 ######################
-###     VALUE      ###
+###     VALUES      ###
 ######################
 
 
