@@ -749,7 +749,7 @@ class Parser:
 
         return res.failure(InvalidSyntaxError(
             tok.posStart, tok.posEnd,
-            "সম্ভবত সংখ্যা, দশমিক সংখ্যা, শনাক্তকারী, +, - অথবা (  হবে !"
+            "সম্ভবত সংখ্যা, দশমিক সংখ্যা, শনাক্তকারী, +, -, যদি, লুপ, যখন, ফাংশন, অথবা (  হবে !"
         ))
 
     def power(self):
@@ -831,7 +831,7 @@ class Parser:
         if res.error:
             return res.failure(InvalidSyntaxError(
                 self.currentTok.posStart, self.currentTok.posEnd,
-                "সম্ভবত 'ধরি', সংখ্যা, দশমিক সংখ্যা, শনাক্তকারী, '+', '-' অথবা '(' হবে ।"
+                "সম্ভবত 'ধরি', যদি, লুপ, জখন,ফাংশন, সংখ্যা, দশমিক সংখ্যা, শনাক্তকারী, '+', '-' অথবা '(' হবে ।"
             ))
 
         return res.success(node)
@@ -969,9 +969,8 @@ class RTResult:
 ######################
 
 
-class Number:
-    def __init__(self, value):
-        self.value = value
+class Value:
+    def __init__(self):
         self.setPos()
         self.setContext()
 
@@ -985,16 +984,88 @@ class Number:
         return self
 
     def addedTo(self, other):
+        return None, self.illegalOperation(other)
+
+    def subbedBy(self, other):
+        return None, self.illegalOperation(other)
+
+    def multedBy(self, other):
+        return None, self.illegalOperation(other)
+
+    def divedBy(self, other):
+        return None, self.illegalOperation(other)
+
+    def powedBy(self, other):
+        return None, self.illegalOperation(other)
+
+    def getComparisonEq(self, other):
+        return None, self.illegalOperation(other)
+
+    def getComparisonNe(self, other):
+        return None, self.illegalOperation(other)
+
+    def getComparisonLt(self, other):
+        return None, self.illegalOperation(other)
+
+    def getComparisonGt(self, other):
+        return None, self.illegalOperation(other)
+
+    def getComparisonLte(self, other):
+        return None, self.illegalOperation(other)
+
+    def getComparisonGte(self, other):
+        return None, self.illegalOperation(other)
+
+    def andedBy(self, other):
+        return None, self.illegalOperation(other)
+
+    def oredBy(self, other):
+        return None, self.illegalOperation(other)
+
+    def notted(self):
+        return None, self.illegalOperation(other)
+
+    def execute(self, args):
+        return RTResult().failure(self.illegalOperation())
+
+    def copy(self):
+        raise Exception('No copy method defined')
+
+    def isTrue(self):
+        return False
+
+    def illegalOperation(self, other=None):
+        if not other: other = self
+        return RTError(
+            self.posStart, other.posEnd,
+            'Illegal operation',
+            self.context
+        )
+
+
+class Number(Value):
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+
+
+    def addedTo(self, other):
         if isinstance(other, Number):
             return Number(self.value + other.value).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def subbedBy(self, other):
         if isinstance(other, Number):
             return Number(self.value - other.value).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def multedBy(self, other):
         if isinstance(other, Number):
             return Number(self.value * other.value).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def divedBy(self, other):
         if isinstance(other, Number):
@@ -1004,42 +1075,62 @@ class Number:
                 )
 
             return Number(self.value / other.value).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def powedBy(self, other):
         if isinstance(other, Number):
             return Number(self.value ** other.value).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def getComparisonEq(self, other):
         if isinstance(other, Number):
             return Number(int(self.value == other.value)).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def getComparisonNe(self, other):
         if isinstance(other, Number):
             return Number(int(self.value != other.value)).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def getComparisonLt(self, other):
         if isinstance(other, Number):
             return Number(int(self.value < other.value)).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def getComparisonGt(self, other):
         if isinstance(other, Number):
             return Number(int(self.value > other.value)).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def getComparisonLte(self, other):
         if isinstance(other, Number):
             return Number(int(self.value <= other.value)).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def getComparisonGte(self, other):
         if isinstance(other, Number):
             return Number(int(self.value >= other.value)).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def andedBy(self, other):
         if isinstance(other, Number):
             return Number(int(self.value and other.value)).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def oredBy(self, other):
         if isinstance(other, Number):
             return Number(int(self.value or other.value)).setContext(self.context), None
+        else:
+            return None, Value.illegalOperation(self, other)
 
     def notted(self):
         return Number(1 if self.value == 0 else 0).setContext(self.context), None
@@ -1056,6 +1147,52 @@ class Number:
     def __repr__(self):
         return str(self.value)
 
+
+class Function(Value):
+    def __init__(self, name, bodyNode, argNames):
+        super().__init__()
+        self.name = name or "<anonymous>"
+        self.bodyNode = bodyNode
+        self.argNames = argNames
+
+    def execute(self, args):
+        res = RTResult()
+        interpreter = Interpreter()
+        newContext = Context(self.name, self.context, self.posStart)
+        newContext.symbolTable = SymbolTable(newContext.parent.symbolTable)
+
+        if len(args) > len(self.argNames):
+            return res.failure(RTError(
+                self.posStart, self.posEnd,
+                f"{len(args) - len(self.argNames)} too many args passed into '{self.name}'",
+                self.context
+            ))
+
+        if len(args) < len(self.argNames):
+            return res.failure(RTError(
+                self.posStart, self.posEnd,
+                f"{len(self.argNames) - len(args)} too few args passed into '{self.name}'",
+                self.context
+            ))
+
+        for i in range(len(args)):
+            argName = self.argNames[i]
+            argValue = args[i]
+            argValue.setContext(newContext)
+            newContext.symbolTable.set(argName, argValue)
+
+        value = res.register(interpreter.visit(self.bodyNode, newContext))
+        if res.error: return res
+        return res.success(value)
+
+    def copy(self):
+        copy = Function(self.name, self.bodyNode, self.argNames)
+        copy.setContext(self.context)
+        copy.setPos(self.posStart, self.posEnd)
+        return copy
+
+    def __repr__(self):
+        return f"<function {self.name}>"
 
 ######################
 ###     CONTEXT    ###
@@ -1075,9 +1212,9 @@ class Context:
 ######################
 
 class SymbolTable:
-    def __init__(self):
+    def __init__(self,parent=None):
         self.symbols = {}
-        self.parent = None
+        self.parent = parent
 
     def get(self, name):
         value = self.symbols.get(name, None)
@@ -1095,7 +1232,6 @@ class SymbolTable:
 ######################
 ###  INTERPRETER   ###
 ######################
-
 
 class Interpreter:
     def visit(self, node, context):
@@ -1256,6 +1392,36 @@ class Interpreter:
 
         return res.success(None)
 
+
+    def visitFuncDefNode(self, node, context):
+        res = RTResult()
+
+        funcName = node.varNameTok.value if node.varNameTok else None
+        bodyNode = node.bodyNode
+        argNames = [argName.value for argName in node.argNameToks]
+        funcValue = Function(funcName, bodyNode, argNames).setContext(context).setPos(node.posStart, node.posEnd)
+
+        if node.varNameTok:
+            context.symbolTable.set(funcName, funcValue)
+
+        return res.success(funcValue)
+
+
+    def visitCallNode(self, node, context):
+        res = RTResult()
+        args = []
+
+        valueToCall = res.register(self.visit(node.nodeToCall, context))
+        if res.error: return res
+        valueToCall = valueToCall.copy().setPos(node.posStart, node.posEnd)
+
+        for argNode in node.argNodes:
+            args.append(res.register(self.visit(argNode, context)))
+            if res.error: return res
+
+        returnValue = res.register(valueToCall.execute(args))
+        if res.error: return res
+        return res.success(returnValue)
 
 ######################
 ###       RUN      ###
