@@ -60,29 +60,29 @@ class Error:
 
     def as_string(self):
         result = f'{self.error_name}: {self.details}\n'
-        result += f'File {self.pos_start.fn}, line {self.pos_start.ln + 1}'
+        result += f'ফাইলঃ {self.pos_start.fn}, লাইনঃ {self.pos_start.ln + 1}'
         result += '\n\n' + string_with_arrows(self.pos_start.ftxt, self.pos_start, self.pos_end)
         return result
 
 
 class IllegalCharError(Error):
     def __init__(self, pos_start, pos_end, details):
-        super().__init__(pos_start, pos_end, 'Illegal Character', details)
+        super().__init__(pos_start, pos_end, 'দুঃখিত, ভুল অক্ষর', details)
 
 
 class ExpectedCharError(Error):
     def __init__(self, pos_start, pos_end, details):
-        super().__init__(pos_start, pos_end, 'Expected Character', details)
+        super().__init__(pos_start, pos_end, 'দুঃখিত, কাঙ্ক্ষিত অক্ষর', details)
 
 
 class InvalidSyntaxError(Error):
     def __init__(self, pos_start, pos_end, details=''):
-        super().__init__(pos_start, pos_end, 'Invalid Syntax', details)
+        super().__init__(pos_start, pos_end, 'দুঃখিত, লিখতে ভুল হয়েছে', details)
 
 
 class RTError(Error):
     def __init__(self, pos_start, pos_end, details, context):
-        super().__init__(pos_start, pos_end, 'Runtime Error', details)
+        super().__init__(pos_start, pos_end, 'রান টাইম এরোর', details)
         self.context = context
 
     def as_string(self):
@@ -97,11 +97,11 @@ class RTError(Error):
         ctx = self.context
 
         while ctx:
-            result = f'  File {pos.fn}, line {str(pos.ln + 1)}, in {ctx.display_name}\n' + result
+            result = f'  File {pos.fn}, লাইনঃ {str(pos.ln + 1)}, in {ctx.display_name}\n' + result
             pos = ctx.parent_entry_pos
             ctx = ctx.parent
 
-        return 'Traceback (most recent call last):\n' + result
+        return 'ফিরে দেখা (সাম্প্রতিক কল সর্বশেষে):\n' + result
 
 
 #######################################
@@ -697,7 +697,7 @@ class Parser:
         if res.error:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected 'ফেরত', 'চলমান', 'ব্রেক', 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', int, float, identifier, '+', '-', '(', '[' or 'নয়'"
+                "সম্ভবত 'ফেরত', 'চলমান', 'ব্রেক', 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', 'পূর্ণ সংখ্যা', 'দশমিক সংখ্যা', 'শনাক্তকারী', '+', '-', '(', '[' অথবা 'নয়' হবে"
             ))
         return res.success(expr)
 
@@ -711,7 +711,7 @@ class Parser:
             if self.current_tok.type != KO_IDENTIFIER:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected identifier"
+                    "সম্ভবত শনাক্তকারী হবে"
                 ))
 
             var_name = self.current_tok
@@ -721,7 +721,7 @@ class Parser:
             if self.current_tok.type != KO_EQ:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected '='"
+                    "সম্ভবত '=' হবে"
                 ))
 
             res.register_advancement()
@@ -735,7 +735,7 @@ class Parser:
         if res.error:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', int, float, identifier, '+', '-', '(', '[' or 'নয়'"
+                "সম্ভবত 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', 'পূর্ণ সংখ্যা', 'দশমিক সংখ্যা', 'শনাক্তকারী', '+', '-', '(', '[' অথবা 'নয়' হবে"
             ))
 
         return res.success(node)
@@ -757,7 +757,7 @@ class Parser:
         if res.error:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Expected int, float, identifier, '+', '-', '(', '[', 'যদি', 'লুপ', 'যখন', 'ফাংশন' or 'নয়'"
+                "সম্ভবত 'পূর্ণ সংখ্যা', 'দশমিক সংখ্যা', '+', '-', '(', '[', 'যদি', 'লুপ', 'যখন', 'ফাংশন' অথবা 'নয়' হবে"
             ))
 
         return res.success(node)
@@ -802,7 +802,7 @@ class Parser:
                 if res.error:
                     return res.failure(InvalidSyntaxError(
                         self.current_tok.pos_start, self.current_tok.pos_end,
-                        "Expected ')', 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', int, float, identifier, '+', '-', '(', '[' or 'নয়'"
+                        "সম্ভবত ')', 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', 'পূর্ণ সংখ্যা', 'দশমিক সংখ্যা', 'শনাক্তকারী', '+', '-', '(', '[' অথবা 'নয়' হবে"
                     ))
 
                 while self.current_tok.type == KO_COMMA:
@@ -815,7 +815,7 @@ class Parser:
                 if self.current_tok.type != KO_RPAREN:
                     return res.failure(InvalidSyntaxError(
                         self.current_tok.pos_start, self.current_tok.pos_end,
-                        f"Expected ',' or ')'"
+                        f"সম্ভবত ',' অথবা ')' হবে"
                     ))
 
                 res.register_advancement()
@@ -854,7 +854,7 @@ class Parser:
             else:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected ')'"
+                    "সম্ভবত ')' হবে"
                 ))
 
         elif tok.type == KO_LSQUARE:
@@ -884,7 +884,7 @@ class Parser:
 
         return res.failure(InvalidSyntaxError(
             tok.pos_start, tok.pos_end,
-            "Expected int, float, identifier, '+', '-', '(', '[', যদি', 'লুপ', 'যখন', 'ফাংশন'"
+            "সম্ভবত 'পূর্ণ সংখ্যা', 'দশমিক সংখ্যা', '+', '-', '(', '[', যদি', 'লুপ', 'যখন' অথবা 'ফাংশন' হবে"
         ))
 
     def list_expr(self):
@@ -895,7 +895,7 @@ class Parser:
         if self.current_tok.type != KO_LSQUARE:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected '['"
+                f"সম্ভবত '[' হবে"
             ))
 
         res.register_advancement()
@@ -909,7 +909,7 @@ class Parser:
             if res.error:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    "Expected ']', 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', int, float, identifier, '+', '-', '(', '[' or 'নয়'"
+                    "সম্ভবত ']', 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', 'পূর্ণ সংখ্যা', 'দশমিক সংখ্যা', 'শনাক্তকারী', '+', '-', '(', '[' অথবা 'নয়' হবে"
                 ))
 
             while self.current_tok.type == KO_COMMA:
@@ -922,7 +922,7 @@ class Parser:
             if self.current_tok.type != KO_RSQUARE:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected ',' or ']'"
+                    f"সম্ভবত ',' অথবা ']' হবে"
                 ))
 
             res.register_advancement()
@@ -966,7 +966,7 @@ class Parser:
                 else:
                     return res.failure(InvalidSyntaxError(
                         self.current_tok.pos_start, self.current_tok.pos_end,
-                        "Expected 'শেষ'"
+                        "সম্ভবত 'শেষ' হবে"
                     ))
             else:
                 expr = res.register(self.statement())
@@ -997,7 +997,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, case_keyword):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected '{case_keyword}'"
+                f"সম্ভবত '{case_keyword}' হবে"
             ))
 
         res.register_advancement()
@@ -1009,7 +1009,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, 'তাহলে'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'তাহলে'"
+                f"সম্ভবত 'তাহলে' হবে"
             ))
 
         res.register_advancement()
@@ -1049,7 +1049,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, 'লুপ'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'লুপ'"
+                f"সম্ভবত 'লুপ' হবে"
             ))
 
         res.register_advancement()
@@ -1058,7 +1058,7 @@ class Parser:
         if self.current_tok.type != KO_IDENTIFIER:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected identifier"
+                f"সম্ভবত শনাক্তকারী হবে"
             ))
 
         var_name = self.current_tok
@@ -1068,7 +1068,7 @@ class Parser:
         if self.current_tok.type != KO_EQ:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected '='"
+                f"সম্ভবত '=' হবে"
             ))
 
         res.register_advancement()
@@ -1080,7 +1080,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, 'থেকে'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'থেকে'"
+                f"সম্ভবত 'থেকে' হবে"
             ))
 
         res.register_advancement()
@@ -1101,7 +1101,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, 'তাহলে'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'তাহলে'"
+                f"সম্ভবত 'তাহলে' হবে"
             ))
 
         res.register_advancement()
@@ -1117,7 +1117,7 @@ class Parser:
             if not self.current_tok.matches(KO_KEYWORD, 'শেষ'):
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected 'শেষ'"
+                    f"সম্ভবত 'শেষ' হবে"
                 ))
 
             res.register_advancement()
@@ -1136,7 +1136,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, 'যখন'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'যখন'"
+                f"সম্ভবত 'যখন' হবে"
             ))
 
         res.register_advancement()
@@ -1148,7 +1148,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, 'তাহলে'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'তাহলে'"
+                f"সম্ভবত 'তাহলে' হবে"
             ))
 
         res.register_advancement()
@@ -1164,7 +1164,7 @@ class Parser:
             if not self.current_tok.matches(KO_KEYWORD, 'শেষ'):
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected 'শেষ'"
+                    f"সম্ভবত 'শেষ' হবে"
                 ))
 
             res.register_advancement()
@@ -1183,7 +1183,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, 'ফাংশন'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'ফাংশন'"
+                f"সম্ভবত 'ফাংশন' হবে"
             ))
 
         res.register_advancement()
@@ -1196,14 +1196,14 @@ class Parser:
             if self.current_tok.type != KO_LPAREN:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected '('"
+                    f"সম্ভবত '(' হবে"
                 ))
         else:
             var_name_tok = None
             if self.current_tok.type != KO_LPAREN:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected identifier or '('"
+                    f"সম্ভবত 'শনাক্তকারী' অথবা '(' হবে"
                 ))
 
         res.register_advancement()
@@ -1222,7 +1222,7 @@ class Parser:
                 if self.current_tok.type != KO_IDENTIFIER:
                     return res.failure(InvalidSyntaxError(
                         self.current_tok.pos_start, self.current_tok.pos_end,
-                        f"Expected identifier"
+                        f"সম্ভবত শনাক্তকারী হবে"
                     ))
 
                 arg_name_toks.append(self.current_tok)
@@ -1232,13 +1232,13 @@ class Parser:
             if self.current_tok.type != KO_RPAREN:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected ',' or ')'"
+                    f"সম্ভবত ',' অথবা ')' হবে"
                 ))
         else:
             if self.current_tok.type != KO_RPAREN:
                 return res.failure(InvalidSyntaxError(
                     self.current_tok.pos_start, self.current_tok.pos_end,
-                    f"Expected identifier or ')'"
+                    f"সম্ভবত শনাক্তকারী অথবা ')' হবে"
                 ))
 
         res.register_advancement()
@@ -1261,7 +1261,7 @@ class Parser:
         if self.current_tok.type != KO_NEWLINE:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected '->' or NEWLINE"
+                f"সম্ভবত '->' অথবা নতুন লাইন হবে"
             ))
 
         res.register_advancement()
@@ -1273,7 +1273,7 @@ class Parser:
         if not self.current_tok.matches(KO_KEYWORD, 'শেষ'):
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                f"Expected 'শেষ'"
+                f"সম্ভবত 'শেষ' হবে"
             ))
 
         res.register_advancement()
@@ -1437,7 +1437,7 @@ class Value:
         if not other: other = self
         return RTError(
             self.pos_start, other.pos_end,
-            'Illegal operation',
+            'ভুল অপারেশন',
             self.context
         )
 
@@ -1470,7 +1470,7 @@ class Number(Value):
             if other.value == 0:
                 return None, RTError(
                     other.pos_start, other.pos_end,
-                    'Division by zero',
+                    'দুঃখিত, ০ (শূন্য) দিয়ে ভাগ করা যায় না ',
                     self.context
                 )
 
@@ -1609,7 +1609,7 @@ class List(Value):
             except:
                 return None, RTError(
                     other.pos_start, other.pos_end,
-                    'Element at this index could not be removed from list because index is out of bounds',
+                    'তালিকা থেকে এই ইনডেক্স টি বাদ দেয়া যাবে না কারন ইনডেক্সের সীমা অতিক্রম করেছে',
                     self.context
                 )
         else:
@@ -1630,7 +1630,7 @@ class List(Value):
             except:
                 return None, RTError(
                     other.pos_start, other.pos_end,
-                    'Element at this index could not be retrieved from list because index is out of bounds',
+                    'তালিকা থেকে এই ইনডেক্স টি পাওয়া যাবে না কারন ইনডেক্সের সীমা অতিক্রম করেছে',
                     self.context
                 )
         else:
@@ -1665,14 +1665,14 @@ class BaseFunction(Value):
         if len(args) > len(arg_names):
             return res.failure(RTError(
                 self.pos_start, self.pos_end,
-                f"{len(args) - len(arg_names)} too many args passed into {self}",
+                f"{len(args) - len(arg_names)} অতিরিক্ত আর্গুমেন্ট {self} এ দেওয়া হয়েছে",
                 self.context
             ))
 
         if len(args) < len(arg_names):
             return res.failure(RTError(
                 self.pos_start, self.pos_end,
-                f"{len(arg_names) - len(args)} too few args passed into {self}",
+                f"{len(arg_names) - len(args)} কম আর্গুমেন্ট {self} এ দেওয়া হয়েছে",
                 self.context
             ))
 
@@ -1780,7 +1780,7 @@ class BuiltInFunction(BaseFunction):
                 number = int(text)
                 break
             except ValueError:
-                print(f"'{text}' must be an integer. Try again!")
+                print(f"'{text}' অবশই পূর্ণ সংখ্যা হবে। আবার চেষ্টা করুন!")
         return RTResult().success(Number(number))
 
     execute_input_int.arg_names = []
@@ -1822,7 +1822,7 @@ class BuiltInFunction(BaseFunction):
         if not isinstance(list_, List):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "First argument must be list",
+                "প্রথম আর্গুমেন্ট অবশ্যই তালিকা হবে",
                 exec_ctx
             ))
 
@@ -1838,14 +1838,14 @@ class BuiltInFunction(BaseFunction):
         if not isinstance(list_, List):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "First argument must be list",
+                "প্রথম আর্গুমেন্ট অবশ্যই তালিকা হবে",
                 exec_ctx
             ))
 
         if not isinstance(index, Number):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "Second argument must be number",
+                "দ্বিতীয় আর্গুমেন্ট অবশ্যই সংখ্যা হবে",
                 exec_ctx
             ))
 
@@ -1854,7 +1854,7 @@ class BuiltInFunction(BaseFunction):
         except:
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                'Element at this index could not be removed from list because index is out of bounds',
+                'তালিকা থেকে এই ইনডেক্স টি বাদ দেয়া যাবে না কারন ইনডেক্সের সীমা অতিক্রম করেছে',
                 exec_ctx
             ))
         return RTResult().success(element)
@@ -1868,14 +1868,14 @@ class BuiltInFunction(BaseFunction):
         if not isinstance(listA, List):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "First argument must be list",
+                "প্রথম আর্গুমেন্ট অবশ্যই তালিকা হবে",
                 exec_ctx
             ))
 
         if not isinstance(listB, List):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "Second argument must be list",
+                "দ্বিতীয় আর্গুমেন্ট অবশ্যই সংখ্যা হবে",
                 exec_ctx
             ))
 
@@ -1890,7 +1890,7 @@ class BuiltInFunction(BaseFunction):
         if not isinstance(list_, List):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "Argument must be list",
+                "আর্গুমেন্ট অবশ্যই তালিকা হবে",
                 exec_ctx
             ))
 
@@ -1904,7 +1904,7 @@ class BuiltInFunction(BaseFunction):
         if not isinstance(fn, String):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "Second argument must be string",
+                "দ্বিতীয় আর্গুমেন্ট অবশ্যই বাক্য হবে",
                 exec_ctx
             ))
 
@@ -1916,7 +1916,7 @@ class BuiltInFunction(BaseFunction):
         except Exception as e:
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                f"Failed to load script \"{fn}\"\n" + str(e),
+                f"স্ক্রিপ্ট লোড হতে ব্যর্থ হয়েছে \"{fn}\"\n" + str(e),
                 exec_ctx
             ))
 
@@ -1925,7 +1925,7 @@ class BuiltInFunction(BaseFunction):
         if error:
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                f"Failed to finish executing script \"{fn}\"\n" +
+                f"ক্রিপ্ট এর কার্যসম্পাদন শেষ হতে ব্যর্থ হয়েছে \"{fn}\"\n" +
                 error.as_string(),
                 exec_ctx
             ))
@@ -2030,7 +2030,7 @@ class Interpreter:
         if not value:
             return res.failure(RTError(
                 node.pos_start, node.pos_end,
-                f"'{var_name}' is not defined",
+                f"'{var_name}' পূর্বে উল্লেখ করা হয় নি ",
                 context
             ))
 
