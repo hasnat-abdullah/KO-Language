@@ -13,7 +13,7 @@ import math
 #######################################
 
 NUMBER = '০১২৩৪৫৬৭৮৯'
-LETTERS = 'ঁংঃঅআইঈউঊঋএঐওঔকখগঘঙচছজঝঞটঠডঢণতথদধনপফবভমযরল঴঵শষসহ়ঽািীুূৃৄেৈোৌ্ৎৗড়ঢ়য়ৠৰৱ৹৺৻'
+LETTERS = 'ঁংঃঅআইঈউঊঋএঐওঔকখগঘঙচছজঝঞটঠডঢণতথদধনপফবভমযরল঴঵শষসহ়ঽািীুূৃৄেৈোৌ্ৎৗড়ঢ়য়ৠৰৱ৹৺৻'+string.ascii_letters
 LETTERS_NUMBERS = LETTERS + NUMBER
 
 #######################################
@@ -120,7 +120,7 @@ class Position:
         self.idx += 1
         self.col += 1
 
-        if current_char == '\ন':
+        if current_char == '\n':
             self.ln += 1
             self.col = 0
 
@@ -177,7 +177,7 @@ KEYWORDS = [
     'শেষ',
     'ফেরত',
     'চলমান',
-    'ব্রেক',
+    'ব্রেক'
 ]
 
 
@@ -223,11 +223,11 @@ class Lexer:
         tokens = []
 
         while self.current_char != None:
-            if self.current_char in ' \ট':
+            if self.current_char in ' \t':
                 self.advance()
             elif self.current_char == '#':
                 self.skip_comment()
-            elif self.current_char in ';\ন':
+            elif self.current_char in ';\n':
                 tokens.append(Token(KO_NEWLINE, pos_start=self.pos))
                 self.advance()
             elif self.current_char in NUMBER:
@@ -308,8 +308,8 @@ class Lexer:
         self.advance()
 
         escape_characters = {
-            'ন': '\ন',
-            'ট': '\ট'
+            'n': '\n',
+            't': '\t'
         }
 
         while self.current_char != None and (self.current_char != '"' or escape_character):
@@ -395,7 +395,7 @@ class Lexer:
     def skip_comment(self):
         self.advance()
 
-        while self.current_char != '\ন':
+        while self.current_char != '\n':
             self.advance()
 
         self.advance()
@@ -1757,7 +1757,7 @@ class BuiltInFunction(BaseFunction):
     #####################################
 
     def execute_print(self, exec_ctx):
-        print(str(exec_ctx.symbol_table.get('value')))
+        print(En2BnNum(str(exec_ctx.symbol_table.get('value'))))
         return RTResult().success(Number.null)
 
     execute_print.arg_names = ['value']
@@ -1904,19 +1904,19 @@ class BuiltInFunction(BaseFunction):
         if not isinstance(fn, String):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "দ্বিতীয় আর্গুমেন্ট অবশ্যই বাক্য হবে",
+                "Second argument must be string",
                 exec_ctx
             ))
 
         fn = fn.value
 
         try:
-            with open(fn, "r") as f:
+            with open(fn, encoding="utf8") as f:
                 script = f.read()
         except Exception as e:
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                f"স্ক্রিপ্ট লোড হতে ব্যর্থ হয়েছে \"{fn}\"\n" + str(e),
+                f"Failed to load script \"{fn}\"\n" + str(e),
                 exec_ctx
             ))
 
@@ -1925,7 +1925,7 @@ class BuiltInFunction(BaseFunction):
         if error:
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                f"ক্রিপ্ট এর কার্যসম্পাদন শেষ হতে ব্যর্থ হয়েছে \"{fn}\"\n" +
+                f"Failed to finish executing script \"{fn}\"\n" +
                 error.as_string(),
                 exec_ctx
             ))
@@ -1933,7 +1933,6 @@ class BuiltInFunction(BaseFunction):
         return RTResult().success(Number.null)
 
     execute_run.arg_names = ["fn"]
-
 
 BuiltInFunction.print       = BuiltInFunction("print")
 BuiltInFunction.print_ret   = BuiltInFunction("print_ret")
@@ -2251,7 +2250,7 @@ global_symbol_table.set("মিথ্যা", Number.false)
 global_symbol_table.set("সত্য", Number.true)
 global_symbol_table.set("পাই", Number.math_PI)
 global_symbol_table.set("দেখাও", BuiltInFunction.print)
-global_symbol_table.set("PRINT_RET", BuiltInFunction.print_ret)
+global_symbol_table.set("দেখাও_ফেরত", BuiltInFunction.print_ret)
 global_symbol_table.set("ইনপুট", BuiltInFunction.input)
 global_symbol_table.set("ইনপুট_সংখ্যা", BuiltInFunction.input_int)
 global_symbol_table.set("পরিষ্কার", BuiltInFunction.clear)
