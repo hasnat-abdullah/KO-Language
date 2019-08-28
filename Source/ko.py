@@ -1574,8 +1574,25 @@ class String(Value):
         else:
             return None, Value.illegal_operation(self, other)
 
+    #======STRING == compare=====
+    def get_comparison_eq(self, other):
+        if isinstance(other, String):
+            return String(self.value == other.value).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
+
+    # ======STRING != compare=====
+    def get_comparison_ne(self, other):
+        if isinstance(other, String):
+            return String(self.value != other.value).set_context(self.context), None
+        else:
+            return None, Value.illegal_operation(self, other)
+
     def is_true(self):
-        return len(self.value) > 0
+        if self.value == bool:
+            return self.value
+        else:
+            return len(self.value) > 0
 
     def copy(self):
         copy = String(self.value)
@@ -1904,7 +1921,7 @@ class BuiltInFunction(BaseFunction):
         if not isinstance(fn, String):
             return RTResult().failure(RTError(
                 self.pos_start, self.pos_end,
-                "Second argument must be string",
+                "দ্বিতীয় আর্গুমেন্ট অবশ্যই বাক্য হবে",
                 exec_ctx
             ))
 
@@ -2251,8 +2268,8 @@ global_symbol_table.set("সত্য", Number.true)
 global_symbol_table.set("পাই", Number.math_PI)
 global_symbol_table.set("দেখাও", BuiltInFunction.print)
 global_symbol_table.set("দেখাও_ফেরত", BuiltInFunction.print_ret)
-global_symbol_table.set("ইনপুট", BuiltInFunction.input)
-global_symbol_table.set("ইনপুট_সংখ্যা", BuiltInFunction.input_int)
+global_symbol_table.set("ইনপুট_বাক্য", BuiltInFunction.input)
+global_symbol_table.set("ইনপুট", BuiltInFunction.input_int)
 global_symbol_table.set("পরিষ্কার", BuiltInFunction.clear)
 global_symbol_table.set("CLS", BuiltInFunction.clear)
 global_symbol_table.set("সংখ্যা_কি", BuiltInFunction.is_number)
