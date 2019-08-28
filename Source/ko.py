@@ -7,6 +7,7 @@ from strings_with_arrows import *
 import string
 import os
 import math
+import random
 
 #######################################
 # CONSTANTS
@@ -1555,6 +1556,7 @@ Number.null = Number(0)
 Number.false = Number(0)
 Number.true = Number(1)
 Number.math_PI = Number(math.pi)
+Number.rand = Number(random.randrange(10))
 
 
 class String(Value):
@@ -1797,7 +1799,11 @@ class BuiltInFunction(BaseFunction):
                 number = int(text)
                 break
             except ValueError:
-                print(f"'{text}' অবশই পূর্ণ সংখ্যা হবে। আবার চেষ্টা করুন!")
+                try:
+                    number = float(text)
+                    break
+                except ValueError:
+                    print(f"'{text}' অবশ্যই সংখ্যা হবে। আবার চেষ্টা করুন!")
         return RTResult().success(Number(number))
 
     execute_input_int.arg_names = []
@@ -2266,6 +2272,7 @@ global_symbol_table.set("খালি", Number.null)
 global_symbol_table.set("মিথ্যা", Number.false)
 global_symbol_table.set("সত্য", Number.true)
 global_symbol_table.set("পাই", Number.math_PI)
+global_symbol_table.set("এলোমেলো", Number.rand)
 global_symbol_table.set("দেখাও", BuiltInFunction.print)
 global_symbol_table.set("দেখাও_ফেরত", BuiltInFunction.print_ret)
 global_symbol_table.set("ইনপুট_বাক্য", BuiltInFunction.input)
