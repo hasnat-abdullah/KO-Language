@@ -176,7 +176,7 @@ KEYWORDS = [
     'তাহলে',
     'শেষ',
     'ফেরত',
-    'চলমান',
+    'চলবে',
     'ব্রেক'
 ]
 
@@ -626,7 +626,7 @@ class Parser:
         if not res.error and self.current_tok.type != KO_EOF:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "Token cannot appear after previous tokens"
+                "পূর্বের টোকেনের পরে এই টোকেন টি গ্রহণযোগ্য নয়"
             ))
         return res
 
@@ -683,7 +683,7 @@ class Parser:
                 self.reverse(res.to_reverse_count)
             return res.success(ReturnNode(expr, pos_start, self.current_tok.pos_start.copy()))
 
-        if self.current_tok.matches(KO_KEYWORD, 'চলমান'):
+        if self.current_tok.matches(KO_KEYWORD, 'চলবে'):
             res.register_advancement()
             self.advance()
             return res.success(ContinueNode(pos_start, self.current_tok.pos_start.copy()))
@@ -697,7 +697,7 @@ class Parser:
         if res.error:
             return res.failure(InvalidSyntaxError(
                 self.current_tok.pos_start, self.current_tok.pos_end,
-                "সম্ভবত 'ফেরত', 'চলমান', 'ব্রেক', 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', 'পূর্ণ সংখ্যা', 'দশমিক সংখ্যা', 'শনাক্তকারী', '+', '-', '(', '[' অথবা 'নয়' হবে"
+                "সম্ভবত 'ফেরত', 'চলবে', 'ব্রেক', 'ধরি', 'যদি', 'লুপ', 'যখন', 'ফাংশন', 'পূর্ণ সংখ্যা', 'দশমিক সংখ্যা', 'শনাক্তকারী', '+', '-', '(', '[' অথবা 'নয়' হবে"
             ))
         return res.success(expr)
 
@@ -1589,7 +1589,7 @@ class String(Value):
             return None, Value.illegal_operation(self, other)
 
     def is_true(self):
-        if self.value == bool:
+        if type(self.value) == bool:
             return self.value
         else:
             return len(self.value) > 0
